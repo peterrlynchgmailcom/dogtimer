@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Reinforce — variable interval trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas:#EDE8DE;
+    --surface:#F7F4EC;
+    --surface-raised:#FFFFFF;
+    --ink:#2B2A25;
+    --ink-soft:#6B6A5E;
+    --brass:#A97C3F;
+    --brass-deep:#8A6530;
+    --olive:#4C6444;
+    --olive-soft:#DCE4D2;
+    --rust:#A8503D;
+    --line:#DAD4C4;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--canvas);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', system-ui, sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:0 0 3rem;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;
+  }
+  .app{
+    width:100%;
+    max-width:420px;
+    padding:1.5rem 1.25rem 0;
+  }
+  header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    padding-bottom:1.25rem;
+    border-bottom:1px solid var(--line);
+    margin-bottom:1.75rem;
+  }
+  header h1{
+    font-size:17px;
+    font-weight:600;
+    margin:0;
+    letter-spacing:0.01em;
+  }
+  header span{
+    font-size:12px;
+    color:var(--ink-soft);
+  }
+
+  .stage{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:2.25rem 1.5rem 1.75rem;
+    text-align:center;
+    position:relative;
+  }
+  .status-word{
+    font-size:12px;
+    font-weight:500;
+    letter-spacing:0.06em;
+    color:var(--ink-soft);
+    height:16px;
+    transition:color 0.2s ease;
+  }
+  .status-word.cue{color:var(--olive);}
+
+  .readout{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:500;
+    font-size:15vw;
+    max-font-size:64px;
+    line-height:1;
+    margin:0.6rem 0 0.4rem;
+    letter-spacing:-0.01em;
+    font-variant-numeric:tabular-nums;
+  }
+  @media(min-width:420px){ .readout{ font-size:60px; } }
+
+  .readout.cue{color:var(--olive);}
+
+  .sub-readout{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    color:var(--ink-soft);
+    min-height:16px;
+  }
+
+  .cue-ring{
+    position:absolute;
+    inset:0;
+    border-radius:4px;
+    border:2px solid transparent;
+    pointer-events:none;
+    transition:border-color 0.15s ease;
+  }
+  .cue-ring.active{border-color:var(--olive);}
+
+  .mark-btn{
+    width:100%;
+    margin-top:1.5rem;
+    padding:1.1rem 0;
+    border-radius:4px;
+    border:1px solid var(--brass-deep);
+    background:var(--brass);
+    color:#FFF9F0;
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:15px;
+    font-weight:600;
+    letter-spacing:0.02em;
+    cursor:pointer;
+    transition:transform 0.08s ease, background 0.15s ease;
+  }
+  .mark-btn:active{transform:scale(0.98);}
+  .mark-btn.waiting{background:var(--surface-raised); color:var(--brass-deep); border-color:var(--brass);}
+  .mark-btn.ready{background:var(--olive); border-color:#3B4E35;}
+
+  .skip-btn{
+    width:100%;
+    margin-top:0.6rem;
+    padding:0.7rem 0;
+    border-radius:4px;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+  }
+  .skip-btn:active{transform:scale(0.98);}
+
+  .controls{
+    margin-top:1.75rem;
+    display:flex;
+    gap:0.75rem;
+  }
+  .ctrl-btn{
+    flex:1;
+    padding:0.85rem 0;
+    border-radius:4px;
+    border:1px solid var(--line);
+    background:var(--surface-raised);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:14px;
+    font-weight:500;
+    cursor:pointer;
+  }
+  .ctrl-btn:active{transform:scale(0.98);}
+  .ctrl-btn.primary{background:var(--ink); color:var(--canvas); border-color:var(--ink);}
+  .ctrl-btn.danger{color:var(--rust);}
+  .ctrl-btn[disabled]{opacity:0.4;}
+
+  section.panel{
+    margin-top:2rem;
+  }
+  section.panel h2{
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:0 0 0.9rem;
+  }
+  .slider-row{
+    margin-bottom:1.1rem;
+  }
+  .slider-row label{
+    display:flex;
+    justify-content:space-between;
+    font-size:13px;
+    margin-bottom:0.4rem;
+  }
+  .slider-row label b{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:500;
+  }
+  input[type=range]{
+    width:100%;
+    accent-color:var(--brass);
+    height:20px;
+  }
+
+  .curve-wrap{
+    margin-top:0.4rem;
+    margin-bottom:0.5rem;
+  }
+  #curveChart{
+    width:100%;
+    height:56px;
+    display:block;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:4px;
+  }
+  .curve-labels{
+    display:flex;
+    justify-content:space-between;
+    font-size:10px;
+    color:var(--ink-soft);
+    margin-top:0.35rem;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .curve-labels span:nth-child(2){
+    font-family:'IBM Plex Sans', sans-serif;
+    letter-spacing:0.03em;
+  }
+  .skew-hint{
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-top:0.35rem;
+    line-height:1.4;
+  }
+
+  .preset-row{
+    display:flex;
+    gap:0.5rem;
+  }
+  .preset-btn{
+    flex:1;
+    padding:0.65rem 0.3rem;
+    border-radius:4px;
+    border:1px solid var(--line);
+    background:var(--surface-raised);
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+  }
+  .preset-btn:active{transform:scale(0.98);}
+  .preset-btn.active{
+    background:var(--olive-soft);
+    border-color:var(--olive);
+  }
+  .preset-name{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink);
+  }
+  .preset-btn.active .preset-name{color:var(--olive);}
+  .preset-range{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    color:var(--ink-soft);
+  }
+
+  .stats{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0.6rem;
+    margin-top:0.5rem;
+  }
+  .stat{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:0.75rem 0.6rem;
+    text-align:center;
+  }
+  .stat b{
+    display:block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:19px;
+    font-weight:500;
+  }
+  .stat span{
+    font-size:11px;
+    color:var(--ink-soft);
+  }
+
+  .toggle-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0.6rem 0;
+    font-size:13px;
+    border-bottom:1px solid var(--line);
+  }
+  .toggle-row:last-child{border-bottom:none;}
+  .switch{
+    width:38px;
+    height:22px;
+    border-radius:11px;
+    background:var(--line);
+    position:relative;
+    cursor:pointer;
+    flex-shrink:0;
+    transition:background 0.15s ease;
+  }
+  .switch.on{background:var(--olive);}
+  .switch::after{
+    content:'';
+    position:absolute;
+    top:2px; left:2px;
+    width:18px; height:18px;
+    border-radius:50%;
+    background:#fff;
+    transition:transform 0.15s ease;
+  }
+  .switch.on::after{transform:translateX(16px);}
+
+  footer{
+    margin-top:2rem;
+    font-size:11px;
+    color:var(--ink-soft);
+    line-height:1.5;
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>Reinforce</h1>
+    <span id="session-label">no session</span>
+  </header>
+
+  <div class="stage">
+    <div class="cue-ring" id="cueRing"></div>
+    <div class="status-word" id="statusWord">stopped</div>
+    <div class="readout" id="readout">00:00</div>
+    <div class="sub-readout" id="subReadout">set an interval range and start</div>
+    <button class="mark-btn" id="markBtn">start session</button>
+    <button class="skip-btn" id="skipBtn" style="display:none;">skip this cue — don't reward</button>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl-btn danger" id="resetBtn" disabled>end session</button>
+  </div>
+
+  <section class="panel" id="summaryPanel" style="display:none;">
+    <h2>Last session</h2>
+    <div class="stats">
+      <div class="stat"><b id="sumCount">0</b><span>reinforcements</span></div>
+      <div class="stat"><b id="sumSkipped">0</b><span>skipped</span></div>
+      <div class="stat"><b id="sumAvg">—</b><span>avg interval</span></div>
+      <div class="stat"><b id="sumElapsed">0:00</b><span>elapsed</span></div>
+    </div>
+    <div class="skew-hint" id="sumDetail">—</div>
+  </section>
+
+  <section class="panel">
+    <h2>Training stage</h2>
+    <div class="preset-row">
+      <button class="preset-btn" id="presetShaping" data-min="3" data-max="20" data-skew="4">
+        <span class="preset-name">Shaping</span>
+        <span class="preset-range">3–20s</span>
+      </button>
+      <button class="preset-btn" id="presetDuration" data-min="10" data-max="120" data-skew="4">
+        <span class="preset-name">Duration</span>
+        <span class="preset-range">10s–2m</span>
+      </button>
+      <button class="preset-btn" id="presetMaintenance" data-min="15" data-max="180" data-skew="3.5">
+        <span class="preset-name">Maintenance</span>
+        <span class="preset-range">15s–3m</span>
+      </button>
+    </div>
+    <div class="skew-hint" id="presetHint">shaping a new behavior — frequent, easy-to-predict reinforcement</div>
+  </section>
+
+  <section class="panel">
+    <h2>Interval range</h2>
+    <div class="slider-row">
+      <label>Minimum <b id="minOut">3s</b></label>
+      <input type="range" id="minSlider" min="3" max="180" value="3" step="1">
+    </div>
+    <div class="slider-row">
+      <label>Maximum <b id="maxOut">20s</b></label>
+      <input type="range" id="maxSlider" min="1" max="900" value="20" step="1">
+    </div>
+    <div class="curve-wrap">
+      <svg id="curveChart" viewBox="0 0 300 56" preserveAspectRatio="none"></svg>
+      <div class="curve-labels">
+        <span id="curveMinLabel">3s</span>
+        <span>likelihood of cue over time</span>
+        <span id="curveMaxLabel">10s</span>
+      </div>
+    </div>
+    <div class="slider-row">
+      <label>Front-load strength <b id="skewOut">4.0×</b></label>
+      <input type="range" id="skewSlider" min="1" max="10" value="4" step="0.5">
+      <div class="skew-hint">lower = closer to a flat random spread · higher = weighted harder toward early cues</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Cues</h2>
+    <div class="toggle-row">
+      <span>Cue tone</span>
+      <div class="switch on" id="soundToggle"></div>
+    </div>
+    <div class="toggle-row">
+      <span>Vibration</span>
+      <div class="switch on" id="vibrateToggle"></div>
+    </div>
+    <div class="toggle-row">
+      <span>Clicker tone on mark</span>
+      <div class="switch on" id="clickerToggle"></div>
+    </div>
+    <div class="skew-hint">turn off cue tone for a silent alert — vibration and the on-screen change still fire, just without sound giving you away</div>
+  </section>
+
+  <section class="panel">
+    <h2>This session</h2>
+    <div class="stats">
+      <div class="stat"><b id="statCount">0</b><span>reinforcements</span></div>
+      <div class="stat"><b id="statSkipped">0</b><span>skipped</span></div>
+      <div class="stat"><b id="statAvg">—</b><span>avg interval</span></div>
+      <div class="stat"><b id="statElapsed">0:00</b><span>elapsed</span></div>
+    </div>
+  </section>
+
+  <footer>
+    Cue timing follows a weighted curve, like a slot machine's RNG — most cues land early in your range, but the tail still reaches all the way to your maximum, so it never becomes predictable.<br>
+    Mark and reward the instant it fires — that's the variable-ratio timing that keeps behavior strong.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var state = 'idle'; // idle | running | waiting-mark
+  var minS = 3, maxS = 20;
+  var skewDivisor = 4;
+  var soundOn = true, vibrateOn = true, clickerOn = true;
+  var sessionStart = null;
+  var cueDeadline = null;
+  var tickHandle = null;
+  var elapsedHandle = null;
+  var reinforcements = 0;
+  var skippedCount = 0;
+  var intervalLog = [];
+  var lastCueTime = null;
+
+  var readout = document.getElementById('readout');
+  var subReadout = document.getElementById('subReadout');
+  var statusWord = document.getElementById('statusWord');
+  var markBtn = document.getElementById('markBtn');
+  var skipBtn = document.getElementById('skipBtn');
+  var resetBtn = document.getElementById('resetBtn');
+  var cueRing = document.getElementById('cueRing');
+  var sessionLabel = document.getElementById('session-label');
+  var statSkipped = document.getElementById('statSkipped');
+  var summaryPanel = document.getElementById('summaryPanel');
+  var sumCount = document.getElementById('sumCount');
+  var sumSkipped = document.getElementById('sumSkipped');
+  var sumAvg = document.getElementById('sumAvg');
+  var sumElapsed = document.getElementById('sumElapsed');
+  var sumDetail = document.getElementById('sumDetail');
+  var minSlider = document.getElementById('minSlider');
+  var maxSlider = document.getElementById('maxSlider');
+  var skewSlider = document.getElementById('skewSlider');
+  var skewOut = document.getElementById('skewOut');
+  var minOut = document.getElementById('minOut');
+  var maxOut = document.getElementById('maxOut');
+  var presetBtns = document.querySelectorAll('.preset-btn');
+  var presetHint = document.getElementById('presetHint');
+  var presetHints = {
+    presetShaping: 'shaping a new behavior — frequent, easy-to-predict reinforcement',
+    presetDuration: 'building duration on a known behavior — stretches how long they hold it',
+    presetMaintenance: 'maintaining a solid behavior — occasional long waits keep it durable',
+    custom: 'custom range'
+  };
+  var soundToggle = document.getElementById('soundToggle');
+  var vibrateToggle = document.getElementById('vibrateToggle');
+  var clickerToggle = document.getElementById('clickerToggle');
+  var statCount = document.getElementById('statCount');
+  var statAvg = document.getElementById('statAvg');
+  var statElapsed = document.getElementById('statElapsed');
+
+  var audioCtx = null;
+  function beep(){
+    if(!soundOn) return;
+    try{
+      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.28);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime + 0.3);
+    }catch(e){}
+  }
+  function buzz(){
+    if(!vibrateOn) return;
+    if(navigator.vibrate) navigator.vibrate([40, 40, 40]);
+  }
+  function clickTone(){
+    if(!clickerOn) return;
+    try{
+      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
+      o.type = 'square';
+      o.frequency.value = 2800;
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.35, audioCtx.currentTime + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.045);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime + 0.05);
+    }catch(e){}
+  }
+
+  function fmt(sec){
+    sec = Math.max(0, Math.round(sec));
+    var m = Math.floor(sec/60);
+    var s = sec % 60;
+    return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  }
+
+  function formatLabel(sec){
+    if(sec < 60) return sec + 's';
+    var m = Math.floor(sec/60);
+    var s = sec % 60;
+    return s === 0 ? m+'m' : m+'m '+s+'s';
+  }
+
+  function updateSliderLabels(){
+    minOut.textContent = formatLabel(minS);
+    maxOut.textContent = formatLabel(maxS);
+    drawCurve();
+  }
+
+  function drawCurve(){
+    var svg = document.getElementById('curveChart');
+    var range = maxS - minS;
+    var w = 300, h = 56, pad = 3;
+    var N = 48;
+    var d;
+    if(range <= 0){
+      d = 'M'+pad+','+(h-pad)+' L'+(w-pad)+','+(h-pad);
+    } else {
+      var tau = range / skewDivisor;
+      var pts = [];
+      for(var i=0;i<=N;i++){
+        var x = range * i / N;
+        pts.push(Math.exp(-x/tau));
+      }
+      var maxY = pts[0];
+      var stepX = (w - 2*pad) / N;
+      d = 'M'+pad+','+(h-pad);
+      for(var i=0;i<=N;i++){
+        var px = pad + i*stepX;
+        var py = (h-pad) - (pts[i]/maxY) * (h - 2*pad);
+        d += ' L'+px.toFixed(1)+','+py.toFixed(1);
+      }
+      d += ' L'+(w-pad)+','+(h-pad)+' Z';
+    }
+    svg.innerHTML = '<path d="'+d+'" fill="var(--olive-soft)" stroke="var(--olive)" stroke-width="1.5" stroke-linejoin="round"/>';
+    document.getElementById('curveMinLabel').textContent = formatLabel(minS);
+    document.getElementById('curveMaxLabel').textContent = formatLabel(maxS);
+  }
+
+  minSlider.addEventListener('input', function(){
+    minS = parseInt(minSlider.value, 10);
+    if(minS > maxS){ maxS = minS; maxSlider.value = maxS; }
+    setActivePreset(null);
+    updateSliderLabels();
+  });
+  maxSlider.addEventListener('input', function(){
+    maxS = parseInt(maxSlider.value, 10);
+    if(maxS < minS){ minS = maxS; minSlider.value = minS; }
+    setActivePreset(null);
+    updateSliderLabels();
+  });
+
+  skewSlider.addEventListener('input', function(){
+    skewDivisor = parseFloat(skewSlider.value);
+    skewOut.textContent = skewDivisor.toFixed(1) + '×';
+    setActivePreset(null);
+    drawCurve();
+  });
+
+  function setActivePreset(id){
+    presetBtns.forEach(function(btn){
+      btn.classList.toggle('active', btn.id === id);
+    });
+    presetHint.textContent = presetHints[id || 'custom'];
+  }
+
+  presetBtns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      minS = parseFloat(btn.dataset.min);
+      maxS = parseFloat(btn.dataset.max);
+      skewDivisor = parseFloat(btn.dataset.skew);
+      minSlider.value = minS;
+      maxSlider.value = maxS;
+      skewSlider.value = skewDivisor;
+      skewOut.textContent = skewDivisor.toFixed(1) + '×';
+      setActivePreset(btn.id);
+      updateSliderLabels();
+    });
+  });
+
+  soundToggle.addEventListener('click', function(){
+    soundOn = !soundOn;
+    soundToggle.classList.toggle('on', soundOn);
+  });
+  vibrateToggle.addEventListener('click', function(){
+    vibrateOn = !vibrateOn;
+    vibrateToggle.classList.toggle('on', vibrateOn);
+  });
+  clickerToggle.addEventListener('click', function(){
+    clickerOn = !clickerOn;
+    clickerToggle.classList.toggle('on', clickerOn);
+  });
+
+  function scheduleNextCue(){
+    var range = maxS - minS;
+    if(range <= 0){
+      cueDeadline = Date.now() + minS * 1000;
+      return;
+    }
+    var tau = range / skewDivisor;
+    var maxCdf = 1 - Math.exp(-range / tau);
+    var u = Math.random();
+    var x = -tau * Math.log(1 - u * maxCdf);
+    var wait = minS + x;
+    cueDeadline = Date.now() + wait * 1000;
+  }
+
+  var wakeLock = null;
+  function requestWakeLock(){
+    if(!('wakeLock' in navigator)) return;
+    navigator.wakeLock.request('screen').then(function(lock){
+      wakeLock = lock;
+    }).catch(function(){});
+  }
+  function releaseWakeLock(){
+    if(wakeLock){
+      wakeLock.release().catch(function(){});
+      wakeLock = null;
+    }
+  }
+  document.addEventListener('visibilitychange', function(){
+    if(state !== 'idle' && document.visibilityState === 'visible'){
+      requestWakeLock();
+    }
+  });
+
+  function startSession(){
+    state = 'running';
+    sessionStart = Date.now();
+    reinforcements = 0;
+    skippedCount = 0;
+    intervalLog = [];
+    lastCueTime = sessionStart;
+    statCount.textContent = '0';
+    statSkipped.textContent = '0';
+    statAvg.textContent = '—';
+    statElapsed.textContent = '0:00';
+    summaryPanel.style.display = 'none';
+    sessionLabel.textContent = 'session running';
+    resetBtn.disabled = false;
+    minSlider.disabled = true;
+    maxSlider.disabled = true;
+    skewSlider.disabled = true;
+    presetBtns.forEach(function(btn){ btn.disabled = true; });
+    requestWakeLock();
+    scheduleNextCue();
+    statusWord.textContent = 'waiting for cue';
+    subReadout.textContent = 'cue coming — or tap mark to reward early';
+    markBtn.textContent = 'mark early';
+    markBtn.classList.add('waiting');
+    markBtn.classList.remove('ready');
+    skipBtn.style.display = 'none';
+    tickHandle = setInterval(tick, 100);
+    elapsedHandle = setInterval(updateElapsed, 1000);
+  }
+
+  function tick(){
+    if(state !== 'running') return;
+    var remaining = (cueDeadline - Date.now()) / 1000;
+    if(remaining <= 0){
+      fireCue();
+    } else {
+      readout.textContent = fmt(remaining);
+    }
+  }
+
+  function fireCue(){
+    state = 'waiting-mark';
+    clearInterval(tickHandle);
+    readout.textContent = '00:00';
+    readout.classList.add('cue');
+    statusWord.textContent = 'mark now';
+    statusWord.classList.add('cue');
+    cueRing.classList.add('active');
+    subReadout.textContent = 'tap mark the instant you see this';
+    markBtn.textContent = 'mark + reward';
+    markBtn.classList.remove('waiting');
+    markBtn.classList.add('ready');
+    skipBtn.style.display = 'block';
+    beep();
+    buzz();
+  }
+
+  function markReward(){
+    clickTone();
+    clearInterval(tickHandle);
+    var now = Date.now();
+    var interval = (now - lastCueTime) / 1000;
+    intervalLog.push(interval);
+    lastCueTime = now;
+    reinforcements++;
+    statCount.textContent = reinforcements;
+    var avg = intervalLog.reduce(function(a,b){return a+b;},0) / intervalLog.length;
+    statAvg.textContent = avg.toFixed(1) + 's';
+
+    readout.classList.remove('cue');
+    statusWord.classList.remove('cue');
+    cueRing.classList.remove('active');
+    skipBtn.style.display = 'none';
+
+    state = 'running';
+    scheduleNextCue();
+    statusWord.textContent = 'waiting for cue';
+    subReadout.textContent = 'cue coming — or tap mark to reward early';
+    markBtn.textContent = 'mark early';
+    markBtn.classList.add('waiting');
+    markBtn.classList.remove('ready');
+    tickHandle = setInterval(tick, 100);
+  }
+
+  function skipCue(){
+    if(state !== 'waiting-mark') return;
+    skippedCount++;
+    statSkipped.textContent = skippedCount;
+
+    readout.classList.remove('cue');
+    statusWord.classList.remove('cue');
+    cueRing.classList.remove('active');
+    skipBtn.style.display = 'none';
+
+    state = 'running';
+    scheduleNextCue();
+    statusWord.textContent = 'waiting for cue';
+    subReadout.textContent = 'cue coming — or tap mark to reward early';
+    markBtn.textContent = 'mark early';
+    markBtn.classList.add('waiting');
+    markBtn.classList.remove('ready');
+    tickHandle = setInterval(tick, 100);
+  }
+
+  function updateElapsed(){
+    if(!sessionStart) return;
+    statElapsed.textContent = fmt((Date.now() - sessionStart)/1000);
+  }
+
+  function endSession(){
+    var hadSession = sessionStart !== null;
+    var elapsedSec = hadSession ? (Date.now() - sessionStart) / 1000 : 0;
+
+    state = 'idle';
+    clearInterval(tickHandle);
+    clearInterval(elapsedHandle);
+    releaseWakeLock();
+
+    if(hadSession){
+      sumCount.textContent = reinforcements;
+      sumSkipped.textContent = skippedCount;
+      var avg = intervalLog.length ? (intervalLog.reduce(function(a,b){return a+b;},0) / intervalLog.length) : 0;
+      sumAvg.textContent = intervalLog.length ? avg.toFixed(1) + 's' : '—';
+      sumElapsed.textContent = fmt(elapsedSec);
+      sumDetail.textContent = formatLabel(minS) + '–' + formatLabel(maxS) + ' range · ' + skewDivisor.toFixed(1) + '× front-load';
+      summaryPanel.style.display = 'block';
+    }
+
+    sessionLabel.textContent = 'no session';
+    statusWord.textContent = 'stopped';
+    statusWord.classList.remove('cue');
+    readout.textContent = '00:00';
+    readout.classList.remove('cue');
+    cueRing.classList.remove('active');
+    subReadout.textContent = 'set an interval range and start';
+    markBtn.textContent = 'start session';
+    markBtn.classList.remove('waiting','ready');
+    skipBtn.style.display = 'none';
+    minSlider.disabled = false;
+    maxSlider.disabled = false;
+    skewSlider.disabled = false;
+    presetBtns.forEach(function(btn){ btn.disabled = false; });
+    resetBtn.disabled = true;
+
+    reinforcements = 0;
+    skippedCount = 0;
+    intervalLog = [];
+    sessionStart = null;
+    statCount.textContent = '0';
+    statSkipped.textContent = '0';
+    statAvg.textContent = '—';
+    statElapsed.textContent = '0:00';
+  }
+
+  markBtn.addEventListener('click', function(){
+    if(state === 'idle'){
+      startSession();
+    } else if(state === 'running' || state === 'waiting-mark'){
+      markReward();
+    }
+  });
+
+  skipBtn.addEventListener('click', skipCue);
+  resetBtn.addEventListener('click', endSession);
+
+  setActivePreset('presetShaping');
+  updateSliderLabels();
+})();
+</script>
+
+</body>
+</html>
