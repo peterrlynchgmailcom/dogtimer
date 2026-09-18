@@ -58,6 +58,42 @@
     color:var(--ink-soft);
   }
 
+  .scope-note{
+    font-size:11px;
+    color:var(--ink-soft);
+    text-align:center;
+    margin:-1.1rem 0 1.5rem;
+    line-height:1.4;
+  }
+
+  .howto{
+    margin-bottom:1.75rem;
+    border:1px solid var(--line);
+    border-radius:4px;
+    background:var(--surface);
+    padding:0 0.9rem;
+  }
+  .howto summary{
+    padding:0.75rem 0;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    cursor:pointer;
+    list-style:none;
+  }
+  .howto summary::-webkit-details-marker{display:none;}
+  .howto summary::before{content:'+  '; color:var(--brass-deep);}
+  .howto[open] summary::before{content:'–  ';}
+  .howto-body{
+    padding:0 0 0.9rem;
+    font-size:12.5px;
+    line-height:1.55;
+    color:var(--ink-soft);
+  }
+  .howto-body p{margin:0 0 0.7rem;}
+  .howto-body p:last-child{margin-bottom:0;}
+  .howto-body b{color:var(--ink); font-weight:600;}
+
   .stage{
     background:var(--surface);
     border:1px solid var(--line);
@@ -105,7 +141,12 @@
     pointer-events:none;
     transition:border-color 0.15s ease;
   }
-  .cue-ring.active{border-color:var(--olive);}
+  .cue-ring.active{border-color:var(--olive); animation:cuePulse 0.5s ease-out;}
+
+  @keyframes cuePulse{
+    0%{box-shadow:0 0 0 0 rgba(76,100,68,0.35);}
+    100%{box-shadow:0 0 0 14px rgba(76,100,68,0);}
+  }
 
   .mark-btn{
     width:100%;
@@ -120,9 +161,9 @@
     font-weight:600;
     letter-spacing:0.02em;
     cursor:pointer;
-    transition:transform 0.08s ease, background 0.15s ease;
+    transition:transform 0.08s ease, background 0.15s ease, box-shadow 0.15s ease;
   }
-  .mark-btn:active{transform:scale(0.98);}
+  .mark-btn:active{transform:scale(0.98); box-shadow:inset 0 2px 4px rgba(0,0,0,0.18);}
   .mark-btn.waiting{background:var(--surface-raised); color:var(--brass-deep); border-color:var(--brass);}
   .mark-btn.ready{background:var(--olive); border-color:#3B4E35;}
 
@@ -138,8 +179,9 @@
     font-size:13px;
     font-weight:500;
     cursor:pointer;
+    transition:transform 0.08s ease, box-shadow 0.15s ease;
   }
-  .skip-btn:active{transform:scale(0.98);}
+  .skip-btn:active{transform:scale(0.98); box-shadow:inset 0 2px 4px rgba(0,0,0,0.1);}
 
   .controls{
     margin-top:1.75rem;
@@ -157,8 +199,9 @@
     font-size:14px;
     font-weight:500;
     cursor:pointer;
+    transition:transform 0.08s ease, box-shadow 0.15s ease;
   }
-  .ctrl-btn:active{transform:scale(0.98);}
+  .ctrl-btn:active{transform:scale(0.98); box-shadow:inset 0 2px 4px rgba(0,0,0,0.1);}
   .ctrl-btn.primary{background:var(--ink); color:var(--canvas); border-color:var(--ink);}
   .ctrl-btn.danger{color:var(--rust);}
   .ctrl-btn[disabled]{opacity:0.4;}
@@ -204,6 +247,7 @@
     background:var(--surface);
     border:1px solid var(--line);
     border-radius:4px;
+    transition:opacity 0.18s ease;
   }
   .curve-labels{
     display:flex;
@@ -239,8 +283,9 @@
     flex-direction:column;
     align-items:center;
     gap:2px;
+    transition:transform 0.08s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
   }
-  .preset-btn:active{transform:scale(0.98);}
+  .preset-btn:active{transform:scale(0.98); box-shadow:inset 0 2px 4px rgba(0,0,0,0.1);}
   .preset-btn.active{
     background:var(--olive-soft);
     border-color:var(--olive);
@@ -308,7 +353,7 @@
     width:18px; height:18px;
     border-radius:50%;
     background:#fff;
-    transition:transform 0.15s ease;
+    transition:transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   .switch.on::after{transform:translateX(16px);}
 
@@ -328,6 +373,20 @@
     <h1>Reinforce</h1>
     <span id="session-label">no session</span>
   </header>
+
+  <p class="scope-note">Built for training animals — dogs, cats, and other pets. Not designed or intended for use on people.</p>
+
+  <details class="howto">
+    <summary>How this works</summary>
+    <div class="howto-body">
+      <p><b>The idea:</b> reinforcement that arrives at unpredictable times builds stronger, more durable behavior than reinforcing every single time — the same principle behind why a slot machine is so compelling, applied on purpose to training.</p>
+      <p><b>Pick a training stage</b> (or set your own range) — it decides how often a cue can appear.</p>
+      <p><b>Start a session.</b> The timer counts to a randomly-timed cue, weighted toward the early part of your range by however much "front-load strength" you've set.</p>
+      <p><b>When the cue fires,</b> mark the exact instant your animal is doing the right thing, then deliver the reward.</p>
+      <p><b>Mark early, anytime,</b> if they offer something worth rewarding before the cue does — it resets the timer from that moment.</p>
+      <p><b>Skip</b> if the cue fires but the behavior wasn't right. It won't count, and the timer just rolls again.</p>
+    </div>
+  </details>
 
   <div class="stage">
     <div class="cue-ring" id="cueRing"></div>
@@ -404,14 +463,10 @@
       <div class="switch on" id="soundToggle"></div>
     </div>
     <div class="toggle-row">
-      <span>Vibration</span>
-      <div class="switch on" id="vibrateToggle"></div>
-    </div>
-    <div class="toggle-row">
       <span>Clicker tone on mark</span>
       <div class="switch on" id="clickerToggle"></div>
     </div>
-    <div class="skew-hint">turn off cue tone for a silent alert — vibration and the on-screen change still fire, just without sound giving you away</div>
+    <div class="skew-hint">turn off cue tone for a silent alert — the on-screen change still fires, just without sound giving you away</div>
   </section>
 
   <section class="panel">
@@ -436,7 +491,7 @@
   var state = 'idle'; // idle | running | waiting-mark
   var minS = 3, maxS = 20;
   var skewDivisor = 4;
-  var soundOn = true, vibrateOn = true, clickerOn = true;
+  var soundOn = true, clickerOn = true;
   var sessionStart = null;
   var cueDeadline = null;
   var tickHandle = null;
@@ -476,7 +531,6 @@
     custom: 'custom range'
   };
   var soundToggle = document.getElementById('soundToggle');
-  var vibrateToggle = document.getElementById('vibrateToggle');
   var clickerToggle = document.getElementById('clickerToggle');
   var statCount = document.getElementById('statCount');
   var statAvg = document.getElementById('statAvg');
@@ -497,10 +551,6 @@
       o.connect(g); g.connect(audioCtx.destination);
       o.start(); o.stop(audioCtx.currentTime + 0.3);
     }catch(e){}
-  }
-  function buzz(){
-    if(!vibrateOn) return;
-    if(navigator.vibrate) navigator.vibrate([40, 40, 40]);
   }
   function clickTone(){
     if(!clickerOn) return;
@@ -563,7 +613,9 @@
       }
       d += ' L'+(w-pad)+','+(h-pad)+' Z';
     }
+    svg.style.opacity = '0.25';
     svg.innerHTML = '<path d="'+d+'" fill="var(--olive-soft)" stroke="var(--olive)" stroke-width="1.5" stroke-linejoin="round"/>';
+    requestAnimationFrame(function(){ svg.style.opacity = '1'; });
     document.getElementById('curveMinLabel').textContent = formatLabel(minS);
     document.getElementById('curveMaxLabel').textContent = formatLabel(maxS);
   }
@@ -612,10 +664,6 @@
   soundToggle.addEventListener('click', function(){
     soundOn = !soundOn;
     soundToggle.classList.toggle('on', soundOn);
-  });
-  vibrateToggle.addEventListener('click', function(){
-    vibrateOn = !vibrateOn;
-    vibrateToggle.classList.toggle('on', vibrateOn);
   });
   clickerToggle.addEventListener('click', function(){
     clickerOn = !clickerOn;
@@ -709,7 +757,6 @@
     markBtn.classList.add('ready');
     skipBtn.style.display = 'block';
     beep();
-    buzz();
   }
 
   function markReward(){
